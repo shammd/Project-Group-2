@@ -1,1 +1,2 @@
-print ( "HeJ alla")
+print ( "Hej alla")
+print ( "hello world")
