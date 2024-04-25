@@ -1,9 +1,4 @@
-<<<<<<< Updated upstream
-print ( "Hej alla")
-print ( "hello world")
-=======
 #!/usr/bin/env pybricks-micropython
-
 """
 Example LEGO® MINDSTORMS® EV3 Robot Arm Program
 ----------------------------------------------
@@ -19,6 +14,7 @@ from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor, TouchSensor, ColorSensor
 from pybricks.parameters import Port, Stop, Direction, Color
 from pybricks.tools import wait
+import time 
 
 # Initialize the EV3 Brick
 ev3 = EV3Brick()
@@ -57,13 +53,20 @@ color_sensor = ColorSensor(Port.S2)
 
 # Define förinställda positioner i grader relativt till zero point
 POSITIONS = {
-    1: -112,     # zero point
-    2: 0,    # ungefär 90° från zero point
+    1: -100, # 
+    2: 0,    # zero point
     3: 47,   # ungefär 45° från andra position (135° från zero point) - drop off zone för gröna objekt
-    4: 90    # ungefär 45° från tredje position (180° från zero point)
-}
+    4: 90,   # ungefär 45° från tredje position (180° från zero point)
+    5: -51   # Extra postion sido led 
+} 
 
 COLOR_LST = [Color.RED, Color.GREEN, Color.YELLOW]
+
+P1 = []
+P2 = []
+P3 = [Color.RED, Color.GREEN]
+P4 = [Color.YELLOW]
+P5 = []
 
 # Function to close the gripper
 def close_gripper():
@@ -73,6 +76,7 @@ def close_gripper():
 # Function to open the gripper
 def open_gripper():
     gripper_motor.run_target(150, -90)
+    #gripper_motor.run_until_stalled(-200, then=Stop.HOLD, duty_limit=7)
     print('open')
 
 # Function to move the elbow upward
@@ -91,36 +95,19 @@ def detect_color():
     return detected_color
 
 # Funktion för att uttala färgens namn
-def announce_color():
-    detected_color = detect_color()
-    if detected_color == Color.RED:
+def announce_color(color):
+    if color == Color.RED:
         ev3.speaker.say("Red")
-    elif detected_color == Color.GREEN:
+    elif color == Color.GREEN:
         ev3.speaker.say("Green")
-    elif detected_color == Color.YELLOW:
+    elif color == Color.YELLOW:
         ev3.speaker.say("Yellow")
-    elif detected_color == Color.BLUE:
+    elif color == Color.BLUE:
         ev3.speaker.say("Blue")
-    else:
-        ev3.speaker.say("No object detected")
+    elif color == None:
+        ev3.speaker.say('No item found')
 
-def rotate_arm_until_end():
-    # Spara den initiala vinkeln
-    initial_angle = elbow_motor.angle()
-    print('nuvarande')
-    
-    # Övervaka förändringen i vinkeln
-    while True:
-        elbow_motor.run(100)
-        current_angle = elbow_motor.angle()
-        # Om förändringen i vinkeln är mycket liten, anta att motorn har nått slutet
-        if abs(current_angle - initial_angle) < 1:
-            # Stanna motorn
-            elbow_motor.stop(Stop.BRAKE)
-            # Återställ vinkeln till 0
-            elbow_motor.reset_angle(0)
             
-
 def item_zone(position):
     target_position = POSITIONS.get(position)
     if target_position is None:
@@ -140,16 +127,14 @@ def elevated_position(position):
         open_gripper()
         elbow_down(55)
         close_gripper()
-        #elbow_up(50)
     return item_color
 
 def reset_robot():
     while not base_switch.pressed():
         base_motor.run(-60)
-    base_motor.run_angle(60,112)
-    base_motor.reset_angle(0) 
-    #rotate_arm_until_end()   
-        
+    base_motor.run_angle(60,110)
+    base_motor.reset_angle(0)   
+
 def pick_item(position):
     item_zone(position) 
     elbow_down(90)
@@ -157,37 +142,89 @@ def pick_item(position):
     elbow_up(45)
 
 def drop_item(position):
-        elbow_up(45)
-        item_zone(position)
-        elbow_down(90)
+    elbow_up(45)
+    item_zone(position)
+    elbow_down(90)
+    open_gripper()
+    elbow_up(90)
+
+def sort_item_by_time():
+    pick_item(1)
+    item_color = detect_color()
+    if item_color in COLOR_LST:
+        drop_item(3)
+    else: reset_robot()
+
+def sort_objects_for_time(duration):
+    start_time = time.time()  # Hämta starttiden
+    while time.time() - start_time < duration:  # Utför sortering under angiven tid
+        ev3.speaker.say('Start')
+
+def NoItemFound():
+    elbow_up(45) 
+    open_gripper()
+    
+def reset_arm(open_, up_90):
+    if open_ == 0:
         open_gripper()
+    elif open_ == 1:
+        pass
+    elif open_ == 2:
+        close_gripper()
+    
+    if up_90 == 90:
+        pass
+    elif up_90 == 0:
+        elbow_up(90)
+
 
 def main():
-    elbow_up(45)
+    open_gripper()
+    elbow_up(90)
     reset_robot()
-    for _ in range(3):
-        open_gripper()
+    while True:
         pick_item(1)
-        item_color = detect_color()
-        if item_color == Color.RED:
-            drop_item(3)
-        elif item_color == Color.GREEN:
-            drop_item(3)
-        elif item_color == Color.YELLOW:
-            drop_item(4)
-        else:
-            drop_item(4)
-        elbow_up(90)
-        item_C = elevated_position(2)
+        item_C = detect_color()
+        announce_color(item_C)
         if item_C == Color.RED:
             drop_item(3)
-        elif item_C == Color.GREEN:
+        elif item_C == Color.GREEN: 
             drop_item(3)
         elif item_C == Color.YELLOW:
             drop_item(4)
-        else:
+        else: 
+            NoItemFound()
+            continue
+
+def R_main():
+    reset_arm()
+    reset_robot()
+    L_P = False 
+    while not L_P:
+        count = 0
+        pick_item(1)
+        item_C = detect_color()
+        announce_color(item_C)
+        if item_C in P3:
+            drop_item(3)
+        elif item_C in P4:
             drop_item(4)
-        elbow_up(90)
+        elif item not in COLOR_LST: 
+            NoItemFound()
+            count += 1
+        itemC = elevated_position(2)
+        announce_color(itemC)
+        if itemC in P3:
+            drop_item(3)
+        elif itemC in P4:
+            drop_item(4)
+        elif itemC not in COLOR_LST: 
+            continue
+            count += 1
+        
+        if count == 20:
+            L_P = True
+
 if __name__ == "__main__":
     main()
->>>>>>> Stashed changes
+    
